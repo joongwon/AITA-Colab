@@ -1,0 +1,25 @@
+{
+  "name": "AI TA for Google Colab",
+  "description": "AI TA for Google Colab",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": ["tabs", "activeTab", "scripting"],
+  "icons": {
+    "128": "logo.png"
+  },
+  "action": {},
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://colab.research.google.com/*"],
+      "js": [],
+      "css": ["content-script.css"]
+    }
+  ]
+}

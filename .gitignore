@@ -1,1 +1,4 @@
 .*.swp
+.env
+node_modules/
+build/
