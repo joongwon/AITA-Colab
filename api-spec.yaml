@@ -1,0 +1,188 @@
+openapi: 3.0.4
+info:
+  title: AI TA on Colab API - OpenAPI 3.0
+  description: Google Colab AI TA extension server based on the OpenAPI 3.0 specification
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: analysis
+    description: Analyse codes, explain errors, & co.
+  - name: chat
+    description: Chat with an AI
+paths:
+  /analyses/{id}:
+    post:
+      tags:
+        - analysis
+      summary: Analyse and explain codes.
+      description: Analyse and explain codes.
+      operationId: analyse
+      parameters:
+        - name: id
+          in: path
+          description: ID of conversation
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisRequestBody'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /chats/{id}:
+    post:
+      tags:
+        - chat
+      summary: Chat with an AI TA.
+      description: Chat with an AI TA.
+      operationId: chat
+      parameters:
+        - name: id
+          in: path
+          description: ID of conversation
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequestBody'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResult'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    MetaData:
+      type: object
+      properties:
+        colab:
+          type: object
+          properties:
+            base_uri:
+              type: string
+              example: https://localhost:8080
+        id:
+          type: string
+          example: IfwOFfMBydUH
+        outputId:
+          type: string
+          example: c9e9f566-f508-4e13-bf6c-33c5f18a7abe
+    Output:
+      type: object
+      properties:
+        name:
+          type: string
+          example: stdout
+        output_type:
+          type: string
+          example: stream
+        text:
+          type: array
+          items:
+            type: string
+            example: "Hello, world!"
+    Cell:
+      required:
+        - cell_type
+        - source
+      type: object
+      properties:
+        cell_type:
+          type: string
+          example: code
+          enum:
+            - code
+            - markdown
+        execution_count:
+          type: integer
+          format: int64
+          example: 42
+        metadata:
+          $ref: "#/components/schemas/MetaData"
+        outputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Output"
+        source:
+          type: array
+          items:
+            type: string
+            example: print("Hello, world!")
+    AnalysisRequestBody:
+      required:
+        - code
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/Cell'
+        context:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cell'
+    AnalysisResult:
+      required:
+        - text
+      type: object
+      properties:
+        text:
+          type: string
+    ChatRequestBody:
+      required:
+        - prompt
+      type: object
+      properties:
+        prompt:
+          type: string
+    ChatResult:
+      required:
+        - answer
+      type: object
+      properties:
+        answer:
+          type: string
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required:
+        - code
+        - message
+        
