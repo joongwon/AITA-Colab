@@ -1,6 +1,5 @@
 import { createRoot } from 'react-dom/client';
 import "../base.css";
-import "./codeCellStyles.css";
 import { App } from './App';
 
 const getCode = (codeCell : Element) => {
@@ -18,7 +17,8 @@ function mountCodeCells(element: Element) {
       return;
     }
     const div = document.createElement("div");
-    div.classList.add("w-max");
+    div.classList.add(
+      "w-max", "absolute", "top-3", "right-3", "z-1");
     mainContent.append(div);
 
     const root = createRoot(div);
@@ -31,6 +31,7 @@ mountCodeCells(document.body);
 const observer = new MutationObserver(
   (mutationsList) =>
     mutationsList
+    .filter(mutation => mutation.type === "childList")
         .flatMap(mutation => Array.from(mutation.addedNodes))
         .filter(node => node instanceof Element)
         .forEach(node => mountCodeCells(node))

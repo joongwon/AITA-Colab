@@ -1,8 +1,0 @@
-.cell.code .main-content {
-  flex-direction: row;
-}
-
-.cell.code .main-content > :first-child {
-  flex: 1;
-}
-
