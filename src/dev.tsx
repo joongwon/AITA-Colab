@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
-import "../base.css";
-import "./codeCellStyles.css";
-import { App } from './App';
+import "./base.css";
+import "./content-script/codeCellStyles.css";
+import { App } from './content-script/App';
 
 const getCode = (codeCell : Element) => {
   const codeElems = codeCell.querySelectorAll(".view-line");
