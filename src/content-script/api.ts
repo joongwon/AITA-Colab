@@ -1,46 +1,52 @@
-export interface MetaData {
+export type MetaData = {
   colab?: { base_uri: string }; 
   id: string;
   outputId?: string;
 }
 
-export interface Output {
+export type Output = {
   name: string;        // e.g. "stdout"
   output_type: string; // e.g. "stream"
   text: string[];      // e.g. "Hello, world!"
 }
 
 // A Jupyter Notebook cell
-export interface Cell {
-  cell_type: 'code' | 'markdown';
-  execution_count?: number; // exists where cell_type: "code"
-  metadata: MetaData;
-  outputs?: Output[];       // exists where cell_type: "code"
-  source: string[];
-}
+export type Cell =
+  | {
+      cell_type: 'code';
+      execution_count?: number;
+      metadata: MetaData;
+      outputs: Output[];
+      source: string[];
+    }
+  | {
+      cell_type: 'markdown';
+      metadata: MetaData;
+      source: string[];
+    }
 
 /* -------- /analyses -------- */
 
-export interface AnalysisRequestBody {
+export type AnalysisRequestBody = {
   code: Cell;
   context?: Cell[];
 }
 
-export interface AnalysisResult {
+export type AnalysisResult = {
   text: string;
 }
 
 /* --------- /chats ---------- */
-export interface ChatRequestBody {
+export type ChatRequestBody = {
   prompt: string;
 }
 
-export interface ChatResult {
+export type ChatResult = {
   answer: string;
 }
 
 /* ---------- error ---------- */
-export interface ApiError {
+export type ApiError = {
   code: string;
   message: string;
 }
