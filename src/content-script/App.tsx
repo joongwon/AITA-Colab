@@ -1,6 +1,6 @@
 import Markdown from "markdown-to-jsx";
 import "../base.css";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ChatResponse = {
   // The ID of the context in which the code was analyzed.
@@ -94,12 +94,29 @@ async function continueChat(
 /**
  * App component that allows the user to request an explanation of their code.
  */
-export const App = (props: { getCode: () => string }) => {
+export const App = (props: {
+  parentElement: Element;
+  getCode: () => string;
+}) => {
   const [isActive, setIsActive] = useState(false);
   const [messages, setMessages] = useState<ChatResponse[]>([]);
   const [contextId, setContextId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [question, setQuestion] = useState("");
+
+  useEffect(() => {
+    // Close the chat when the user clicks outside of it
+    const handleClickOutside = (event: Event) => {
+      if (!props.parentElement.contains(event.target as Node) && isActive) {
+        setIsActive(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isActive]);
 
   /*
    * page: zero-based index of the current message being displayed
@@ -221,6 +238,21 @@ export const App = (props: { getCode: () => string }) => {
                   {question}
                 </button>
               ))}
+              <input
+                type="text"
+                placeholder="질문을 입력하세요..."
+                className="border-b border-gray-300 p-2 w-full mt-2 outline-none focus:border-purple-500"
+                disabled={handleFollowUp === null}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (handleFollowUp) {
+                    handleFollowUp(question);
+                    setQuestion(""); // Clear the input after submitting
+                  }
+                }}
+              />
             </>
           ) : (
             <>loading...</>

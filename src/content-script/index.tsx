@@ -23,7 +23,7 @@ function mountCodeCells(element: Element) {
     mainContent.append(div);
 
     const root = createRoot(div);
-    root.render(<App getCode={() => getCode(codeCell)} />);
+    root.render(<App parentElement={div} getCode={() => getCode(codeCell)} />);
   });
 }
 
