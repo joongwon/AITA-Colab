@@ -87,30 +87,19 @@ paths:
                 $ref: "#/components/schemas/Error"
 components:
   schemas:
-    MetaData:
-      type: object
-      properties:
-        colab:
-          type: object
-          properties:
-            base_uri:
-              type: string
-              example: https://localhost:8080
-        id:
-          type: string
-          example: IfwOFfMBydUH
-        outputId:
-          type: string
-          example: c9e9f566-f508-4e13-bf6c-33c5f18a7abe
     Output:
+      required:
+        - output_type
       type: object
       properties:
-        name:
-          type: string
-          example: stdout
         output_type:
           type: string
-          example: stream
+          example: stdout
+          enum:
+            - result
+            - stdout
+            - stderr
+            - display
         text:
           type: array
           items:
@@ -132,8 +121,6 @@ components:
           type: integer
           format: int64
           example: 42
-        metadata:
-          $ref: "#/components/schemas/MetaData"
         outputs:
           type: array
           items:
@@ -156,11 +143,19 @@ components:
             $ref: '#/components/schemas/Cell'
     AnalysisResult:
       required:
-        - text
+        - explanation
+        - details
+        - followUps
       type: object
       properties:
-        text:
+        explanation:
           type: string
+        details:
+          type: string
+        followUps:
+          type: array
+          items:
+            type: string
     ChatRequestBody:
       required:
         - prompt
@@ -170,11 +165,16 @@ components:
           type: string
     ChatResult:
       required:
-        - answer
+        - explanation
+        - followUps
       type: object
       properties:
-        answer:
+        explanation:
           type: string
+        followUps:
+          type: array
+          items:
+            type: string
     Error:
       type: object
       properties:
