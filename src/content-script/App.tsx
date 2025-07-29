@@ -130,31 +130,31 @@ export const App = (props: {
       setIsActive(false);
     } else {
       setIsActive(true);
-      if (messages.length === 0) {
-        // This is first time opening the chat, so we need to initiate it
-        if (!isLoading) {
-          // If we are already loading, do not initiate again
-          setIsLoading(true);
-          initiateChat(props.getCode())
-            .then((response) => {
-              if (!response.contextId) {
-                // Context ID is always returned, so this should not happen
-                throw new Error("No context ID returned from initiateChat");
-              }
-              setMessages([response]);
-              setContextId(response.contextId);
-            })
-            .catch((error) => {
-              console.error("Error initiating chat:", error);
-              // TODO
-            })
-            .finally(() => {
-              setIsLoading(false);
-            });
-        }
+      // If this is first time opening the chat, so we need to initiate it
+      // If we are already loading, do not initiate again
+      if (messages.length === 0 && !isLoading) {
+        setIsLoading(true);
+        initiateChat(props.getCode())
+          .then((response) => {
+            if (!response.contextId) {
+              // Context ID is always returned, so this should not happen
+              throw new Error("No context ID returned from initiateChat");
+            }
+            setMessages([response]);
+            setContextId(response.contextId);
+          })
+          .catch((error) => {
+            console.error("Error initiating chat:", error);
+            // TODO
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
       }
     }
   };
+
+  // Event handlers are set to null when it's not available
 
   const handleFollowUp = isLoading
     ? null
@@ -238,13 +238,7 @@ export const App = (props: {
                   {question}
                 </button>
               ))}
-              <input
-                type="text"
-                placeholder="질문을 입력하세요..."
-                className="border-b border-gray-300 p-2 w-full mt-2 outline-none focus:border-purple-500"
-                disabled={handleFollowUp === null}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (handleFollowUp) {
@@ -252,7 +246,15 @@ export const App = (props: {
                     setQuestion(""); // Clear the input after submitting
                   }
                 }}
-              />
+              >
+                <input
+                  type="text"
+                  placeholder="질문을 입력하세요..."
+                  className="border-b border-gray-300 p-2 w-full mt-2 outline-none focus:border-purple-500"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                />
+              </form>
             </>
           ) : (
             <>loading...</>
