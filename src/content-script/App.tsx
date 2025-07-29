@@ -95,7 +95,7 @@ async function continueChat(
  * App component that allows the user to request an explanation of their code.
  */
 export const App = (props: {
-  parentElement: Element;
+  parentElement: HTMLElement;
   getCode: () => string;
 }) => {
   const [isActive, setIsActive] = useState(false);
@@ -116,6 +116,16 @@ export const App = (props: {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
+  }, [isActive]);
+
+  useEffect(() => {
+    // z-index: 22 to ensure it appears above colab toolbar
+    if (isActive) {
+      props.parentElement.classList.add("z-22");
+      return () => {
+        props.parentElement.classList.remove("z-22");
+      };
+    }
   }, [isActive]);
 
   /*
@@ -201,7 +211,7 @@ export const App = (props: {
       >
         <div className="justify-center flex mb-2">
           <button
-            className="cursor-pointer disabled:cursor-auto disabled:text-gray-300"
+            className="cursor-pointer disabled:cursor-auto disabled:text-gray-300 border-none bg-transparent"
             disabled={gotoPrevPage === null}
             onClick={() => gotoPrevPage?.()}
           >
@@ -211,7 +221,7 @@ export const App = (props: {
             {page + 1}/{maxPage + 1}쪽
           </span>
           <button
-            className="cursor-pointer disabled:cursor-auto disabled:text-gray-300"
+            className="cursor-pointer disabled:cursor-auto disabled:text-gray-300 border-none bg-transparent"
             disabled={gotoNextPage === null}
             onClick={() => gotoNextPage?.()}
           >
@@ -231,7 +241,7 @@ export const App = (props: {
               {messages[page].followUps.map((question, index) => (
                 <button
                   key={index}
-                  className="bg-red-100 hover:bg-red-200 font-bold py-2 px-4 rounded-full w-full my-1"
+                  className="bg-red-100 hover:bg-red-200 font-bold py-2 px-4 rounded-full w-full my-1 border-none"
                   disabled={handleFollowUp === null}
                   onClick={() => handleFollowUp?.(question)}
                 >
@@ -250,7 +260,7 @@ export const App = (props: {
                 <input
                   type="text"
                   placeholder="질문을 입력하세요..."
-                  className="border-b border-gray-300 p-2 w-full mt-2 outline-none focus:border-purple-500"
+                  className="chat-input"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                 />
@@ -262,7 +272,7 @@ export const App = (props: {
         </div>
       </div>
       <button
-        className={`transition-all absolute top-0 right-0 translate-x-[50%] translate-y-[-50%] bg-purple-500 hover:bg-purple-700 rounded-full ${
+        className={`transition-all absolute top-0 right-0 translate-x-[50%] translate-y-[-50%] bg-purple-500 hover:bg-purple-700 rounded-full border-none ${
           isActive ? "w-4 h-4" : "w-8 h-8"
         }`}
         onClick={() => toggleActive()}

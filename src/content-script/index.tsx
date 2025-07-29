@@ -19,7 +19,7 @@ function mountCodeCells(element: Element) {
       return;
     }
     const div = document.createElement("div");
-    div.classList.add("w-max", "absolute", "top-3", "right-3", "z-1");
+    div.classList.add("w-max", "absolute", "top-3", "right-3");
     mainContent.append(div);
 
     const root = createRoot(div);
