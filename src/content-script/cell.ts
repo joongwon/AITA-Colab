@@ -10,7 +10,7 @@ export type Output =
 export type Cell =
   | {
       cell_type: 'code';
-      execution_count?: number | null;
+      execution_count: number | null;
       outputs: Output[];
       source: string[];
     }

@@ -7,9 +7,14 @@ function makeTextCell(source: string[]): Cell {
   };
 }
 
-function makeCodeCell(outputs: Output[], source: string[]): Cell {
+function makeCodeCell(
+  executionCount: number | null,
+  outputs: Output[],
+  source: string[]
+): Cell {
   return {
     cell_type: 'code',
+    execution_count: executionCount,
     outputs: outputs,
     source: source
   };
@@ -90,7 +95,7 @@ function outputOfCell(elt: HTMLElement): Output[] {
 
 function cellOfElt(elt: HTMLElement): Cell {
   let name = elt.className;
-  if (name.includes("text")) {
+  if (name.includes("text")) { // if a text cell
     let markdown = elt.querySelector<HTMLElement>('div.markdown');
     if (markdown === null) {
       throw new Error("Invalid element: `div.markdown` expected.");
@@ -101,10 +106,33 @@ function cellOfElt(elt: HTMLElement): Cell {
         .split('\n');
       return makeTextCell(source);
     }
-  } else if (name.includes("code")) {
-    let source = elt.style.display === "none" ? codeOfHiddenCell(elt) : codeOfVisibleCell(elt);
-    let outputs = name.includes("code-has-output") ? outputOfCell(elt) : [];
-    return makeCodeCell(outputs, source);
+  } else if (name.includes("code")) { // if a code cell
+    let source =
+      elt.style.display === "none" // if a cell collapsed
+        ? codeOfHiddenCell(elt)
+        : codeOfVisibleCell(elt);
+
+    let outputs =
+      name.includes("code-has-output") // if a cell has output
+        ? outputOfCell(elt)
+        : [];
+
+    let executionCountText =
+      elt.querySelector('colab-run-button')
+        ?.shadowRoot
+        ?.querySelector<HTMLElement>('.execution-count')
+        ?.innerText;
+
+    let executionCount =
+      (
+        executionCountText !== null
+        && executionCountText !== undefined
+        && executionCountText !== "[ ]" // unless not ever executed
+      )
+        ? Number(executionCountText.slice(1, -1))
+        : null;
+      
+    return makeCodeCell(executionCount, outputs, source);
   } else {
     throw new Error("Invalid element: `cell code` or `cell text` expected.");
   }
@@ -119,7 +147,7 @@ function getCells(document: Document): [Cell, Cell[]] {
       if (elt.className.includes("focused")) {
         let source = codeOfVisibleCell(elt);
         let outputs = outputOfCell(elt);
-        currentCell = makeCodeCell(outputs, source);
+        currentCell = makeCodeCell(null, outputs, source);
       } else if (currentCell === null) {
         cellArr.push(cellOfElt(elt));
       }
