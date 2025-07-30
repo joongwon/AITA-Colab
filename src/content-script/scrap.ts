@@ -138,30 +138,21 @@ function cellOfElt(elt: HTMLElement): Cell {
   }
 }
 
-function getCells(document: Document): [Cell, Cell[]] {
-  let currentCell: Cell | null = null;
+/**
+ * Gets a array of cells from DOM.
+ * But *cannot* tell which cell if focused.
+ * @param {document} document
+ * @returns {Cell[]}
+ * @example
+ * const cells = getCells(document);
+ */
+function getCells(document: Document): Cell[] {
   let cellArr: Cell[] = [];
 
   document.querySelectorAll<HTMLElement>('div.cell')
     .forEach((elt) => {
-      if (elt.className.includes("focused")) {
-        let source = codeOfVisibleCell(elt);
-        let outputs = outputOfCell(elt);
-        currentCell = makeCodeCell(null, outputs, source);
-      } else if (currentCell === null) {
-        cellArr.push(cellOfElt(elt));
-      }
+      cellArr.push(cellOfElt(elt));
     });
 
-  if (currentCell === null) {
-    let maybeCurrentCell = cellArr
-      .filter((cell) => { cell.cell_type === 'code' && cell.outputs.length > 0 })
-      .pop();
-    if (maybeCurrentCell === undefined) {
-      throw new Error("Focused cell not exists.");
-    } else {
-      currentCell = maybeCurrentCell;
-    }
-  }
-  return [currentCell, cellArr];
+  return cellArr;
 }
