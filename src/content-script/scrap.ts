@@ -80,7 +80,6 @@ function outputOfCell(elt: HTMLElement): Output[] {
 }
 
 function cellOfElt(elt: HTMLElement): Cell {
-  console.log(name);
   const name = elt.className;
   if (name.includes("text")) {
     // if a text cell
@@ -125,17 +124,36 @@ function cellOfElt(elt: HTMLElement): Cell {
 /**
  * Gets a array of cells from DOM.
  * But *cannot* tell which cell if focused.
- * @param {document} document
  * @returns {Cell[]}
  * @example
- * const cells = getCells(document);
+ * const cells = getCells();
  */
-export function getCells(document: Document): Cell[] {
+export function getCells(): Cell[] {
   const cellArr: Cell[] = [];
 
-  document.querySelectorAll<HTMLElement>("div.cell").forEach((elt) => {
+  for (const elt of document.querySelectorAll<HTMLElement>("div.cell")) {
     cellArr.push(cellOfElt(elt));
-  });
+  }
+
+  return cellArr;
+}
+
+/**
+ * Get the cells before the specified cell.
+ * @param {HTMLElement} cellElt - The cell element to get cells before.
+ * @return {Cell[]}
+ * @example
+ * const cells = getCellsBefore(props.cellElt);
+ */
+export function getCellsBefore(cellElt: HTMLElement): Cell[] {
+  const cellArr: Cell[] = [];
+
+  for (const elt of document.querySelectorAll<HTMLElement>("div.cell")) {
+    if (elt === cellElt) {
+      break; // Stop when we reach the specified cell
+    }
+    cellArr.push(cellOfElt(elt));
+  }
 
   return cellArr;
 }
