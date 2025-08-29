@@ -1,25 +1,16 @@
 import { createRoot } from "react-dom/client";
 import "../base.css";
 import { App } from "./App";
+import { getCellElems } from "./scrap";
+import { addExecutedCode } from "./executedCodes";
 
-/* codes executed in the notebook, in order of execution */
-const executedCodes: string[] = [];
-const getExecutedCodes = () => executedCodes;
-const addExecutedCode = (code: string) => {
-  executedCodes.push(code);
-};
+function setupCodeCells(element: HTMLElement) {
+  const codeCellElems = getCellElems(element).filter(
+    (cell) => cell.cellType === "code",
+  );
 
-const getCode = (codeCell: Element) => {
-  const codeElems = codeCell.querySelectorAll(".view-line");
-  const code = Array.from(codeElems)
-    .map((elem) => elem.textContent ?? "")
-    .join("\n");
-  return code;
-};
-
-function setupCodeCells(element: Element) {
-  for (const codeCell of element.querySelectorAll(".cell.code")) {
-    const mainContent = codeCell.querySelector(".main-content")!;
+  for (const { cellElem, cntElem, getCell } of codeCellElems) {
+    const mainContent = cellElem.querySelector(".main-content")!;
     if (mainContent.children.length > 1) {
       // If there are more than one child, extension is already mounted
       return;
@@ -31,25 +22,20 @@ function setupCodeCells(element: Element) {
     mainContent.append(div);
 
     const root = createRoot(div);
-    root.render(<App parentElement={div} getCode={() => getCode(codeCell)} />);
+    root.render(<App parentElement={div} getCell={getCell} />);
 
     // Observe the execution count to track executed code
-    const countElem = codeCell
-      .querySelector("colab-run-button")
-      ?.shadowRoot?.querySelector<HTMLElement>(".execution-count");
-    if (!countElem) {
-      console.warn("Execution count element not found in code cell:", codeCell);
+    if (!cntElem) {
+      console.warn("Execution count element not found in code cell:", cellElem);
       continue;
     }
     const observer = new MutationObserver(() => {
-      const executionCount = countElem.innerText;
+      const executionCount = cntElem.innerText;
       if (executionCount !== "[ ]") {
-        const code = getCode(codeCell);
-        addExecutedCode(code);
-        console.debug("Code executed:", code);
+        addExecutedCode(getCell());
       }
     });
-    observer.observe(countElem, { characterData: true, subtree: true });
+    observer.observe(cntElem, { characterData: true, subtree: true });
   }
 }
 
@@ -58,7 +44,7 @@ setupCodeCells(document.body);
 const observer = new MutationObserver((mutationsList) =>
   mutationsList
     .flatMap((mutation) => Array.from(mutation.addedNodes))
-    .filter((node) => node instanceof Element)
+    .filter((node) => node instanceof HTMLElement)
     .forEach(setupCodeCells),
 );
 observer.observe(document.body, { childList: true, subtree: true });

@@ -1,6 +1,17 @@
-import { Output, Cell } from "./cell";
+import { Output, CodeCell, MarkdownCell } from "./cell";
 
-function makeTextCell(source: string[]): Cell {
+type CellElem = {
+  cellElem: HTMLElement;
+  cntElem: HTMLElement | null;
+} & ({
+  cellType: "code";
+  getCell: () => CodeCell;
+} | {
+  cellType: "markdown";
+  getCell: () => MarkdownCell;
+});
+
+function makeTextCell(source: string[]): MarkdownCell {
   return {
     cell_type: "markdown",
     source: source,
@@ -11,7 +22,7 @@ function makeCodeCell(
   executionCount: number | null,
   outputs: Output[],
   source: string[],
-): Cell {
+): CodeCell {
   return {
     cell_type: "code",
     execution_count: executionCount,
@@ -79,7 +90,13 @@ function outputOfCell(elt: HTMLElement): Output[] {
   return outputs;
 }
 
+/*
 function cellOfElt(elt: HTMLElement): Cell {
+  return cellElemOfElt(elt).getCell();
+}
+*/
+
+function cellElemOfElt(elt: HTMLElement): CellElem {
   const name = elt.className;
   if (name.includes("text")) {
     // if a text cell
@@ -87,35 +104,52 @@ function cellOfElt(elt: HTMLElement): Cell {
     if (markdown === null) {
       throw new Error("Invalid element: `div.markdown` expected.");
     } else {
-      const source = markdown.innerText
-        .replace("keyboard_arrow_down", "")
-        .trim()
-        .split("\n");
-      return makeTextCell(source);
+      const getCell = () => {
+        const source = markdown.innerText
+          .replace("keyboard_arrow_down", "")
+          .trim()
+          .split("\n");
+        return makeTextCell(source);
+      };
+      return {
+        getCell,
+        cellType: "markdown",
+        cntElem: null,
+        cellElem: elt,
+      };
     }
   } else if (name.includes("code")) {
     // if a code cell
-    const source =
-      elt.style.display === "none" // if a cell collapsed
-        ? codeOfHiddenCell(elt)
-        : codeOfVisibleCell(elt);
 
-    const outputs = name.includes("code-has-output") // if a cell has output
-      ? outputOfCell(elt)
-      : [];
+    const executionCountElement = elt.querySelector("colab-run-button")?.shadowRoot?.querySelector<HTMLElement>(".execution-count");
 
-    const executionCountText = elt
-      .querySelector("colab-run-button")
-      ?.shadowRoot?.querySelector<HTMLElement>(".execution-count")?.innerText;
+    const getCell = () => {
+      const source =
+        elt.style.display === "none" // if a cell collapsed
+          ? codeOfHiddenCell(elt)
+          : codeOfVisibleCell(elt);
 
-    const executionCount =
-      executionCountText !== null &&
-      executionCountText !== undefined &&
-      executionCountText !== "[ ]" // unless not ever executed
-        ? Number(executionCountText.slice(1, -1))
-        : null;
+      const outputs = name.includes("code-has-output") // if a cell has output
+        ? outputOfCell(elt)
+        : [];
 
-    return makeCodeCell(executionCount, outputs, source);
+      const executionCountText = executionCountElement?.innerText;
+
+      const executionCount =
+        executionCountText !== null &&
+        executionCountText !== undefined &&
+        executionCountText !== "[ ]" // unless not ever executed
+          ? Number(executionCountText.slice(1, -1))
+          : null;
+      return makeCodeCell(executionCount, outputs, source);
+    };
+
+    return {
+      getCell,
+      cellType: "code",
+      cntElem: executionCountElement ?? null,
+      cellElem: elt,
+    };
   } else {
     throw new Error("Invalid element: `cell code` or `cell text` expected.");
   }
@@ -123,19 +157,13 @@ function cellOfElt(elt: HTMLElement): Cell {
 
 /**
  * Gets a array of cells from DOM.
- * But *cannot* tell which cell if focused.
- * @returns {Cell[]}
+ * @param {HTMLElement} root - The root element to search for cell elements.
  * @example
- * const cells = getCells();
+ * const cells = getCells(document.body);
  */
-export function getCells(): Cell[] {
-  const cellArr: Cell[] = [];
-
-  for (const elt of document.querySelectorAll<HTMLElement>("div.cell")) {
-    cellArr.push(cellOfElt(elt));
-  }
-
-  return cellArr;
+export function getCellElems(root: HTMLElement): CellElem[] {
+  return Array.from(root.querySelectorAll<HTMLElement>("div.cell"))
+    .map((elt) => cellElemOfElt(elt));
 }
 
 /**
@@ -144,7 +172,6 @@ export function getCells(): Cell[] {
  * @return {Cell[]}
  * @example
  * const cells = getCellsBefore(props.cellElt);
- */
 export function getCellsBefore(cellElt: HTMLElement): Cell[] {
   const cellArr: Cell[] = [];
 
@@ -157,3 +184,4 @@ export function getCellsBefore(cellElt: HTMLElement): Cell[] {
 
   return cellArr;
 }
+ */
