@@ -1,188 +1,274 @@
 openapi: 3.0.4
 info:
-  title: AI TA on Colab API - OpenAPI 3.0
-  description: Google Colab AI TA extension server based on the OpenAPI 3.0 specification
-  version: 0.1.0
+  title: AI TA API
+  version: 1.0.0
+  description: >
+    AI TA 서버의 OpenAPI 명세.
+    JSON 기반 요청/응답을 사용한다.
+
 servers:
   - url: http://localhost:8080
+    description: 개발 서버
+
 tags:
+  - name: auth
+    description: 로그인 및 세션 발급
   - name: analysis
-    description: Analyse codes, explain errors, & co.
+    description: 코드 분석 및 설명
   - name: chat
-    description: Chat with an AI
+    description: 분석 이후 채팅 Q&A
+
 paths:
-  /analyses/{id}:
+  /login:
     post:
-      tags:
-        - analysis
-      summary: Analyse and explain codes.
-      description: Analyse and explain codes.
-      operationId: analyse
-      parameters:
-        - name: id
-          in: path
-          description: ID of conversation
-          required: true
-          schema:
-            type: integer
-            format: int64
+      tags: [auth]
+      summary: 세션 ID 발급
+      description: 보라색 버튼 클릭 시 세션 ID를 발급한다.
+      operationId: login
       requestBody:
+        description: 본 요청은 바디 없이 호출한다.
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 바디 없음
+      responses:
+        '200':
+          description: 세션 ID 발급 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseBody'
+              examples:
+                success:
+                  value:
+                    session_id: "123"
+
+  /analysis:
+    post:
+      tags: [analysis]
+      summary: 코드 분석 수행
+      description: >
+        문제가 되는 코드와 이전 실행 컨텍스트를 전달하면
+        LLM의 분석 결과와 해당 채팅 세션의 chat_id를 반환한다.
+      operationId: analysis
+      requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AnalysisRequestBody'
+            examples:
+              example:
+                value:
+                  session_id: "123"
+                  cell_id: "42"
+                  context:
+                    - { cell_id: "12", code: "x = 13" }
+                    - { cell_id: "23", code: "y = x * 2" }
+                  code: "print(y)"
+                  output:
+                    output_type: stdout
+                    text: ["26"]
       responses:
         '200':
-          description: Successful operation
+          description: 분석 결과
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnalysisResult'
+                $ref: '#/components/schemas/AnalysisResponseBody'
+              examples:
+                success:
+                  value:
+                    chat_id: "123_42_1"
+                    explanation: |
+                      **원인:**
+                      `append` 메서드 때문에 의도치 않은 값이 출력되었어요!
+                      `append` 메서드는 제자리에서 리스트를 변경하고 값을 반환하지 않아요.
+                    followUps:
+                      - "비슷한 오류가 발생하는 다른 프로그램을 보여주세요"
+                      - "강의 자료에서 어느 개념인지 보여주세요"
+                      - "더 궁금한 게 있어요 (채팅 시작)"
         '400':
-          description: Invalid ID supplied
+          description: 잘못된 요청
         '404':
-          description: Not found
+          description: 리소스를 찾을 수 없음
         default:
-          description: Unexpected error
+          description: 서버 오류
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-  /chats/{id}:
+                $ref: '#/components/schemas/Error'
+
+  /chat:
     post:
-      tags:
-        - chat
-      summary: Chat with an AI TA.
-      description: Chat with an AI TA.
+      tags: [chat]
+      summary: 분석 후 채팅 질의/응답
+      description: >
+        특정 chat_id에 대해 사용자의 후속 질문을 보내면 LLM 응답과
+        후속 버튼(followUps)을 반환한다.
       operationId: chat
-      parameters:
-        - name: id
-          in: path
-          description: ID of conversation
-          required: true
-          schema:
-            type: integer
-            format: int64
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ChatRequestBody'
+            examples:
+              example:
+                value:
+                  chat_id: "123_42_1"
+                  prompt: "비슷한 오류가 발생하는 다른 프로그램을 보여주세요"
       responses:
         '200':
-          description: Successful operation
+          description: 채팅 응답
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ChatResult'
+                $ref: '#/components/schemas/ChatResponseBody'
+              examples:
+                success:
+                  value:
+                    explanation: "some code"
+                    followUps:
+                      - "다른 예시 프로그램도 보여주세요"
+                      - "강의 자료에서 어느 개념인지 보여주세요"
+                      - "더 궁금한 게 있어요 (채팅 시작)"
         '400':
-          description: Invalid ID supplied
+          description: 잘못된 요청
         '404':
-          description: Not found
+          description: 리소스를 찾을 수 없음
         default:
-          description: Unexpected error
+          description: 서버 오류
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
-    Output:
-      required:
-        - output_type
+    # POST /login
+    LoginResponseBody:
       type: object
+      required: [session_id]
+      properties:
+        session_id:
+          type: string
+          description: 사용자/세션 식별자
+
+    # POST /analysis
+    AnalysisRequestBody:
+      type: object
+      required:
+        - session_id
+        - cell_id
+        - code
+        - context
+      properties:
+        session_id:
+          type: string
+          description: 내가 어떤 사용자인지(세션/사용자 식별자)
+          example: "123"
+        cell_id:
+          type: string
+          description: ipynb에서 어떤 셀인지
+          example: "42"
+        context:
+          type: array
+          description: 이전에 실행한 코드 기록(순서대로, 지워진 코드 포함 가능)
+          items:
+            $ref: '#/components/schemas/ContextCell'
+          example:
+            - { cell_id: "12", code: "x = 13" }
+            - { cell_id: "23", code: "y = x * 2" }
+        code:
+          type: string
+          description: 현재 블록의 코드
+          example: "print(y)"
+        output:
+          $ref: '#/components/schemas/Output'
+      description: >
+        이전 분석 결과(history)를 LLM에 포함할지 여부는 서버 정책으로 결정한다
+        (같은 session_id, cell_id이지만 chat_id가 다른 경우 등).
+
+    ContextCell:
+      type: object
+      required: [cell_id, code]
+      properties:
+        cell_id:
+          type: string
+          example: "12"
+        code:
+          type: string
+          example: "x = 13"
+
+    Output:
+      type: object
+      required: [output_type]
       properties:
         output_type:
           type: string
+          enum: [result, stdout, stderr, display]
           example: stdout
-          enum:
-            - result
-            - stdout
-            - stderr
-            - display
         text:
           type: array
           items:
             type: string
-            example: "Hello, world!"
-    Cell:
-      required:
-        - cell_type
-        - source
+          example: ["26"]
+
+    AnalysisResponseBody:
       type: object
+      required: [chat_id, explanation, followUps]
       properties:
-        cell_type:
+        chat_id:
           type: string
-          example: code
-          enum:
-            - code
-            - markdown
-        execution_count:
-          type: integer
-          format: int64
-          example: 42
-        outputs:
-          type: array
-          items:
-            $ref: "#/components/schemas/Output"
-        source:
-          type: array
-          items:
-            type: string
-            example: print("Hello, world!")
-    AnalysisRequestBody:
-      required:
-        - code
-      type: object
-      properties:
-        code:
-          $ref: '#/components/schemas/Cell'
-        context:
-          type: array
-          items:
-            $ref: '#/components/schemas/Cell'
-    AnalysisResult:
-      required:
-        - explanation
-        - details
-        - followUps
-      type: object
-      properties:
+          description: 이 분석으로 생성된 채팅방 ID
+          example: "123_42_1"
         explanation:
           type: string
-        details:
-          type: string
+          description: 분석기 결과 설명(마크다운 가능)
         followUps:
           type: array
+          description: 후속 액션 버튼 라벨 목록
           items:
             type: string
+
+    # POST /chat
     ChatRequestBody:
-      required:
-        - prompt
       type: object
+      required: [chat_id, prompt]
       properties:
+        chat_id:
+          type: string
+          description: /analysis 응답에서 받은 chat_id
+          example: "123_42_1"
         prompt:
           type: string
-    ChatResult:
-      required:
-        - explanation
-        - followUps
+          description: 사용자의 후속 질문
+          example: "비슷한 오류가 발생하는 다른 프로그램을 보여주세요"
+
+    ChatResponseBody:
       type: object
+      required: [explanation, followUps]
       properties:
         explanation:
           type: string
+          description: 모델의 답변(설명/코드 등)
         followUps:
           type: array
+          description: 후속 액션 버튼 라벨 목록
           items:
             type: string
+
+    # 공통 에러
     Error:
       type: object
+      required: [code, message]
       properties:
         code:
           type: string
+          example: "BAD_REQUEST"
         message:
           type: string
-      required:
-        - code
-        - message
-        
+          example: "Invalid request payload."
