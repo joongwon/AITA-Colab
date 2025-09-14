@@ -1,9 +1,11 @@
-import { ExecutedCodeCell } from "./cell";
-
 /* codes executed in the notebook, in order of execution */
-const executedCodes: ExecutedCodeCell[] = [];
-export const getExecutedCodes = () => executedCodes;
-export const addExecutedCode = (cell: ExecutedCodeCell) => {
-  executedCodes.push(cell);
+type ExecutedCode = {
+  cell_id: number;
+  code: string;
+  execution_count: number;
 };
-
+const executedCodes: ExecutedCode[] = [];
+export const getExecutedCodes = () => executedCodes;
+export const addExecutedCode = (executedCode: ExecutedCode) => {
+  executedCodes.push(executedCode);
+};

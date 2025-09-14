@@ -3,8 +3,17 @@ import "../base.css";
 import { App } from "./App";
 import { getCellElems } from "./scrap";
 import { addExecutedCode } from "./executedCodes";
+import { login } from "./api";
 
-function setupCodeCells(element: HTMLElement) {
+const fresh_id = (() => {
+  let next_id = 0;
+  return () => {
+    next_id += 1;
+    return next_id;
+  };
+})();
+
+function setupCodeCells(sessionId: string, element: HTMLElement) {
   const codeCellElems = getCellElems(element).filter(
     (cell) => cell.cellType === "code",
   );
@@ -22,7 +31,15 @@ function setupCodeCells(element: HTMLElement) {
     mainContent.append(div);
 
     const root = createRoot(div);
-    root.render(<App parentElement={div} getCell={getCell} />);
+    const cellId = fresh_id();
+    root.render(
+      <App
+        sessionId={sessionId}
+        cellId={cellId}
+        parentElement={div}
+        getCell={getCell}
+      />,
+    );
 
     // Observe the execution count to track executed code
     if (!cntElem) {
@@ -30,21 +47,34 @@ function setupCodeCells(element: HTMLElement) {
       continue;
     }
     const observer = new MutationObserver(() => {
-      const executionCount = cntElem.innerText;
-      if (executionCount !== "[ ]") {
-        addExecutedCode(getCell());
+      const cell = getCell();
+      if (cell.execution_count !== null) {
+        addExecutedCode({
+          cell_id: cellId,
+          code: cell.source.join("\n"),
+          execution_count: cell.execution_count,
+        });
       }
     });
     observer.observe(cntElem, { characterData: true, subtree: true });
   }
 }
 
-setupCodeCells(document.body);
+// Wait for the notebook to load
+setTimeout(() => {
+  login({})
+    .then(({ session_id: sessionId }) => {
+      setupCodeCells(sessionId, document.body);
 
-const observer = new MutationObserver((mutationsList) =>
-  mutationsList
-    .flatMap((mutation) => Array.from(mutation.addedNodes))
-    .filter((node) => node instanceof HTMLElement)
-    .forEach(setupCodeCells),
-);
-observer.observe(document.body, { childList: true, subtree: true });
+      const observer = new MutationObserver((mutationsList) =>
+        mutationsList
+          .flatMap((mutation) => Array.from(mutation.addedNodes))
+          .filter((node) => node instanceof HTMLElement)
+          .forEach((node) => setupCodeCells(sessionId, node)),
+      );
+      observer.observe(document.body, { childList: true, subtree: true });
+    })
+    .catch((err) => {
+      console.error("Failed to login:", err);
+    });
+}, 3000);

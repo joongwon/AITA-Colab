@@ -19,13 +19,32 @@ type ChatResponse = {
  * @param code The code to be analyzed.
  * @returns A promise that resolves to a ChatResponse containing the analysis.
  */
-async function initiateChat(code: CodeCell): Promise<ChatResponse> {
+async function initiateChat(payload: {
+  sessionId: string;
+  cellId: number;
+  code: CodeCell;
+}): Promise<ChatResponse> {
   const allCodes = getExecutedCodes();
-  const thisCount = code.execution_count;
-  const context = thisCount === null ?
-    allCodes :
-    allCodes.filter(c => c.execution_count < thisCount);
-  return analyse({ code, context });
+  const thisCount = payload.code.execution_count;
+  const context =
+    thisCount === null
+      ? allCodes
+      : allCodes.filter((c) => c.execution_count < thisCount);
+  return analyse({
+    session_id: payload.sessionId,
+    cell_id: payload.cellId.toString(),
+    output: {
+      output_type: "result",
+      text: payload.code.outputs
+        .filter((o) => o.output_type === "result")
+        .flatMap((o) => o.text),
+    },
+    code: payload.code.source.join("\n"),
+    context: context.map((c) => ({
+      cell_id: c.cell_id.toString(),
+      code: c.code,
+    })),
+  });
 }
 
 /**
@@ -34,10 +53,14 @@ async function initiateChat(code: CodeCell): Promise<ChatResponse> {
  * @param prompt The follow-up question to ask.
  * @returns A promise that resolves to a ChatResponse containing the follow-up response.
  */
-async function continueChat(
-  prompt: string,
-): Promise<ChatResponse> {
-  return chat({ prompt });
+async function continueChat(payload: {
+  chatId: string;
+  prompt: string;
+}): Promise<ChatResponse> {
+  return chat({
+    chat_id: payload.chatId,
+    prompt: payload.prompt,
+  });
 }
 
 /**
@@ -46,6 +69,8 @@ async function continueChat(
 export const App = (props: {
   parentElement: HTMLElement;
   getCell: () => CodeCell;
+  cellId: number;
+  sessionId: string;
 }) => {
   const [isActive, setIsActive] = useState(false);
   const [messages, setMessages] = useState<ChatResponse[]>([]);
@@ -92,7 +117,11 @@ export const App = (props: {
       // If we are already loading, do not initiate again
       if (messages.length === 0 && !isLoading) {
         setIsLoading(true);
-        initiateChat(props.getCell())
+        initiateChat({
+          sessionId: props.sessionId,
+          cellId: props.cellId,
+          code: props.getCell(),
+        })
           .then((response) => {
             setMessages([response]);
           })
@@ -114,7 +143,10 @@ export const App = (props: {
     : (question: string) => {
         setIsLoading(true);
         setPage(messages.length); // Go to the newly added message
-        continueChat(question)
+        continueChat({
+          chatId: props.cellId.toString(),
+          prompt: question,
+        })
           .then((response) => {
             setMessages((prevMessages) => [...prevMessages, response]);
           })

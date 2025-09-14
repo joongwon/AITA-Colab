@@ -3,13 +3,16 @@ import { Output, CodeCell, MarkdownCell } from "./cell";
 type CellElem = {
   cellElem: HTMLElement;
   cntElem: HTMLElement | null;
-} & ({
-  cellType: "code";
-  getCell: () => CodeCell;
-} | {
-  cellType: "markdown";
-  getCell: () => MarkdownCell;
-});
+} & (
+  | {
+      cellType: "code";
+      getCell: () => CodeCell;
+    }
+  | {
+      cellType: "markdown";
+      getCell: () => MarkdownCell;
+    }
+);
 
 function makeTextCell(source: string[]): MarkdownCell {
   return {
@@ -117,7 +120,9 @@ function cellElemOfElt(elt: HTMLElement): CellElem {
   } else if (name.includes("code")) {
     // if a code cell
 
-    const executionCountElement = elt.querySelector("colab-run-button")?.shadowRoot?.querySelector<HTMLElement>(".execution-count");
+    const runButton = elt.querySelector("colab-run-button");
+    const executionCountElement =
+      runButton?.shadowRoot?.querySelector<HTMLElement>(".execution-count");
 
     const getCell = () => {
       const source =
@@ -158,8 +163,9 @@ function cellElemOfElt(elt: HTMLElement): CellElem {
  * const cells = getCells(document.body);
  */
 export function getCellElems(root: HTMLElement): CellElem[] {
-  return Array.from(root.querySelectorAll<HTMLElement>("div.cell"))
-    .map((elt) => cellElemOfElt(elt));
+  return Array.from(root.querySelectorAll<HTMLElement>("div.cell")).map((elt) =>
+    cellElemOfElt(elt),
+  );
 }
 
 /**
