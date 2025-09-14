@@ -6,9 +6,6 @@ import { CodeCell } from "./cell";
 import { getExecutedCodes } from "./executedCodes";
 
 type ChatResponse = {
-  // The ID of the context in which the code was analyzed.
-  contextId?: string;
-
   // A brief explanation of the code.
   explanation: string;
   // A detailed explanation of the linter message.
@@ -52,7 +49,6 @@ export const App = (props: {
 }) => {
   const [isActive, setIsActive] = useState(false);
   const [messages, setMessages] = useState<ChatResponse[]>([]);
-  const [contextId, setContextId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [question, setQuestion] = useState("");
@@ -98,12 +94,7 @@ export const App = (props: {
         setIsLoading(true);
         initiateChat(props.getCell())
           .then((response) => {
-            if (!response.contextId) {
-              // Context ID is always returned, so this should not happen
-              throw new Error("No context ID returned from initiateChat");
-            }
             setMessages([response]);
-            setContextId(response.contextId);
           })
           .catch((error) => {
             console.error("Error initiating chat:", error);
@@ -121,10 +112,6 @@ export const App = (props: {
   const handleFollowUp = isLoading
     ? null
     : (question: string) => {
-        if (!contextId) {
-          // This function should not be called if there is no context ID
-          throw new Error("No context ID available for follow-up question");
-        }
         setIsLoading(true);
         setPage(messages.length); // Go to the newly added message
         continueChat(question)

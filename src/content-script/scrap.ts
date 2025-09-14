@@ -45,12 +45,8 @@ function codeOfHiddenCell(elt: HTMLElement): string[] {
 }
 
 function codeOfVisibleCell(elt: HTMLElement): string[] {
-  const inputArea = elt.querySelector<HTMLElement>("pre.inputarea");
-  if (inputArea === null) {
-    throw new Error("Invalid element: pre.inputarea");
-  }
-
-  return inputArea.innerText.trim().split("\n");
+  const lines = elt.querySelectorAll<HTMLElement>(".view-line");
+  return Array.from(lines).map((line) => line.innerText);
 }
 
 function makeOutput(
