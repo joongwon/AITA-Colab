@@ -19,11 +19,11 @@ type ChatResponse = {
  * @param code The code to be analyzed.
  * @returns A promise that resolves to a ChatResponse containing the analysis.
  */
-async function initiateChat(payload: {
+function initiateChat(payload: {
   sessionId: string;
   cellId: number;
   code: CodeCell;
-}): Promise<ChatResponse> {
+}): AsyncGenerator<Partial<ChatResponse>> {
   const allCodes = getExecutedCodes();
   const thisCount = payload.code.execution_count;
   const context =
@@ -53,10 +53,10 @@ async function initiateChat(payload: {
  * @param prompt The follow-up question to ask.
  * @returns A promise that resolves to a ChatResponse containing the follow-up response.
  */
-async function continueChat(payload: {
+function continueChat(payload: {
   chatId: string;
   prompt: string;
-}): Promise<ChatResponse> {
+}): AsyncGenerator<Partial<ChatResponse>> {
   return chat({
     chat_id: payload.chatId,
     prompt: payload.prompt,
@@ -73,7 +73,7 @@ export const App = (props: {
   sessionId: string;
 }) => {
   const [isActive, setIsActive] = useState(false);
-  const [messages, setMessages] = useState<ChatResponse[]>([]);
+  const [messages, setMessages] = useState<Partial<ChatResponse>[]>([]);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [question, setQuestion] = useState("");
@@ -110,21 +110,24 @@ export const App = (props: {
 
   const toggleActive = () => {
     if (isActive) {
+      // TODO: clear the state when closing?
       setIsActive(false);
     } else {
       setIsActive(true);
       // If this is first time opening the chat, so we need to initiate it
       // If we are already loading, do not initiate again
       if (messages.length === 0 && !isLoading) {
-        setIsLoading(true);
-        initiateChat({
-          sessionId: props.sessionId,
-          cellId: props.cellId,
-          code: props.getCell(),
-        })
-          .then((response) => {
-            setMessages([response]);
-          })
+        (async () => {
+          setIsLoading(true);
+          const stream = initiateChat({
+            sessionId: props.sessionId,
+            cellId: props.cellId,
+            code: props.getCell(),
+          });
+          for await (const chunk of stream) {
+            setMessages([chunk]);
+          }
+        })()
           .catch((error) => {
             console.error("Error initiating chat:", error);
             // TODO
@@ -143,13 +146,16 @@ export const App = (props: {
     : (question: string) => {
         setIsLoading(true);
         setPage(messages.length); // Go to the newly added message
-        continueChat({
-          chatId: props.cellId.toString(),
-          prompt: question,
-        })
-          .then((response) => {
-            setMessages((prevMessages) => [...prevMessages, response]);
-          })
+        (async () => {
+          const stream = continueChat({
+            chatId: props.cellId.toString(),
+            prompt: question,
+          });
+          const prevMessages = messages;
+          for await (const chunk of stream) {
+            setMessages([...prevMessages, chunk]);
+          }
+        })()
           .catch((error) => {
             console.error("Error continuing chat:", error);
             // TODO
@@ -202,14 +208,14 @@ export const App = (props: {
         <div className="max-h-96 overflow-y-auto overflow-x-hidden">
           {page < messages.length ? (
             <>
-              <Markdown>{messages[page].explanation}</Markdown>
+              <Markdown>{messages[page].explanation ?? ""}</Markdown>
               {messages[page].details && (
                 <details>
                   <summary>설명 펼치기</summary>
                   <Markdown>{messages[page].details}</Markdown>
                 </details>
               )}
-              {messages[page].followUps.map((question, index) => (
+              {messages[page].followUps?.map((question, index) => (
                 <button
                   key={index}
                   className="bg-red-100 hover:bg-red-200 font-bold py-2 px-4 rounded-full w-full my-1 border-none"

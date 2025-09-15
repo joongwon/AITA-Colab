@@ -59,6 +59,9 @@ async function postJson<Req, Res>(path: string, body: Req): Promise<Res> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  }).catch((err) => {
+    console.error("Network error:", err);
+    throw new Error("Network error");
   });
 
   // ok
@@ -83,6 +86,51 @@ async function postJson<Req, Res>(path: string, body: Req): Promise<Res> {
   });
 }
 
+async function* fetchNDJSONStream<Req, Res>(path: string, body: Req) : AsyncGenerator<Res> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch((err) => {
+    console.error("Network error:", err);
+    throw new Error("Network error");
+  });
+
+  if (!res.body) throw new Error("No body in response");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    let lines = buffer.split("\n");
+    buffer = lines.pop()!; // save last partial line
+
+    for (const line of lines) {
+      if (line.trim() !== "") {
+        yield JSON.parse(line);
+      }
+    }
+  }
+
+  // Flush last line if any
+  if (buffer.trim() !== "") {
+    yield JSON.parse(buffer);
+  }
+}
+
+async function* collectJSONStream<Res>(stream: AsyncGenerator<Partial<Res>>) : AsyncGenerator<Partial<Res>> {
+  let result: Partial<Res> = {};
+  for await (const chunk of stream) {
+    result = { ...result, ...chunk };
+    yield result;
+  }
+}
+
 /**
  * Requests an analysis.
  * @param {AnalysisRequestBody} req
@@ -90,10 +138,11 @@ async function postJson<Req, Res>(path: string, body: Req): Promise<Res> {
  * @example
  * const result = await analyse({ code: myCell, context: [prevCell] });
  */
-export async function analyse(
+export function analyse(
   req: AnalysisRequestBody,
-): Promise<AnalysisResult> {
-  return postJson<AnalysisRequestBody, AnalysisResult>("/analysis", req);
+): AsyncGenerator<Partial<AnalysisResult>> {
+  const stream = fetchNDJSONStream<AnalysisRequestBody, Partial<AnalysisResult>>("/analysis", req);
+  return collectJSONStream<AnalysisResult>(stream);
 }
 
 /**
@@ -103,8 +152,9 @@ export async function analyse(
  * @example
  * const reply = await chat({ prompt: "Explain the error above." });
  */
-export async function chat(req: ChatRequestBody): Promise<ChatResult> {
-  return postJson<ChatRequestBody, ChatResult>("/chat", req);
+export function chat(req: ChatRequestBody): AsyncGenerator<Partial<ChatResult>> {
+  const stream = fetchNDJSONStream<ChatRequestBody, Partial<ChatResult>>("/chat", req);
+  return collectJSONStream<ChatResult>(stream);
 }
 
 /**
