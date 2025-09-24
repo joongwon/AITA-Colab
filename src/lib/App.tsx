@@ -6,6 +6,7 @@ import { CodeCell } from "./cell";
 import { getExecutedCodes } from "./executedCodes";
 
 type ChatResponse = {
+  chat_id?: string;
   // A brief explanation of the code.
   explanation: string;
   // A detailed explanation of the linter message.
@@ -82,7 +83,8 @@ export const App = (props: {
   sessionId: string;
 }) => {
   const [isActive, setIsActive] = useState(false);
-  const [messages, setMessages] = useState<Partial<ChatResponse>[]>([]);
+  const [messages, setMessages] = useState<(Partial<ChatResponse> | null)[]>([]);
+  const [chatId, setChatId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [question, setQuestion] = useState("");
@@ -110,16 +112,10 @@ export const App = (props: {
     }
   }, [isActive]);
 
-  /*
-   * page: zero-based index of the current message being displayed
-   *   if 0 <= page < messages.length, then messages[page] is the current message being displayed
-   *   if page === messages.length, then we are loading the next message
-   */
-  const maxPage = isLoading ? messages.length : messages.length - 1;
+  const maxPage = messages.length - 1;
 
   const toggleActive = () => {
     if (isActive) {
-      // TODO: clear the state when closing?
       setIsActive(false);
     } else {
       setIsActive(true);
@@ -128,6 +124,7 @@ export const App = (props: {
       if (messages.length === 0 && !isLoading) {
         (async () => {
           setIsLoading(true);
+          setMessages([null]); // Dummy message to show loading state
           const stream = initiateChat({
             sessionId: props.sessionId,
             cellId: props.cellId,
@@ -135,6 +132,9 @@ export const App = (props: {
           });
           for await (const chunk of stream) {
             setMessages([chunk]);
+            if (chunk.chat_id) {
+              setChatId(chunk.chat_id);
+            }
           }
         })()
           .catch((error) => {
@@ -154,15 +154,18 @@ export const App = (props: {
     ? null
     : (question: string) => {
         setIsLoading(true);
+        setMessages([...messages, null]); // Add a dummy message to show loading state
         setPage(messages.length); // Go to the newly added message
         (async () => {
+          if (!chatId) {
+            throw new Error("chatId is null");
+          }
           const stream = continueChat({
-            chatId: props.cellId.toString(),
+            chatId: chatId,
             prompt: question,
           });
-          const prevMessages = messages;
           for await (const chunk of stream) {
-            setMessages([...prevMessages, chunk]);
+            setMessages([...messages, chunk]);
           }
         })()
           .catch((error) => {
@@ -215,7 +218,7 @@ export const App = (props: {
           </button>
         </div>
         <div className="max-h-96 overflow-y-auto overflow-x-hidden">
-          {page < messages.length ? (
+          {messages[page] ? (
             <>
               <Markdown>{messages[page].explanation ?? ""}</Markdown>
               {messages[page].details && (
