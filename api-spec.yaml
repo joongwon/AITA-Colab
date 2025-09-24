@@ -65,31 +65,35 @@ paths:
                   session_id: "123"
                   cell_id: "42"
                   context:
-                    - { cell_id: "12", code: "x = 13" }
-                    - { cell_id: "23", code: "y = x * 2" }
-                  code: "print(y)"
+                    - cell_id: '12'
+                      code: x = 13
+                    - cell_id: '23'
+                      code: y = x * 2
+                  code: print(y)
                   output:
-                    output_type: stdout
-                    text: ["26"]
+                    stdout:
+                      - '26'
+                      - '42'
+                    stderr:
+                      - 'NameError: name ''y'' is not defined'
       responses:
         '200':
-          description: 분석 결과
+          description: 분석 결과(스트리밍 NDJSON)
           content:
-            application/json:
+            application/x-ndjson:
               schema:
                 $ref: '#/components/schemas/AnalysisResponseBody'
               examples:
-                success:
-                  value:
-                    chat_id: "123_42_1"
-                    explanation: |
-                      **원인:**
-                      `append` 메서드 때문에 의도치 않은 값이 출력되었어요!
-                      `append` 메서드는 제자리에서 리스트를 변경하고 값을 반환하지 않아요.
-                    followUps:
-                      - "비슷한 오류가 발생하는 다른 프로그램을 보여주세요"
-                      - "강의 자료에서 어느 개념인지 보여주세요"
-                      - "더 궁금한 게 있어요 (채팅 시작)"
+                stream:
+                  summary: NDJSON 스트림 예시
+                  value: '{"chat_id":"123_42_1"}
+
+                    {"explanation":"**원인:** `append`는 값을 반환하지 않습니다."}
+
+                    {"followUps":["비슷한 오류가 발생하는 다른 프로그램을 보여주세요","강의 자료에서 어느 개념인지 보여주세요","더
+                    궁금한 게 있어요 (채팅 시작)"]}
+
+                    {}'
         '400':
           description: 잘못된 요청
         '404':
@@ -122,19 +126,17 @@ paths:
                   prompt: "비슷한 오류가 발생하는 다른 프로그램을 보여주세요"
       responses:
         '200':
-          description: 채팅 응답
+          description: 채팅 응답(스트리밍 NDJSON)
           content:
-            application/json:
+            application/x-ndjson:
               schema:
                 $ref: '#/components/schemas/ChatResponseBody'
               examples:
-                success:
-                  value:
-                    explanation: "some code"
-                    followUps:
-                      - "다른 예시 프로그램도 보여주세요"
-                      - "강의 자료에서 어느 개념인지 보여주세요"
-                      - "더 궁금한 게 있어요 (채팅 시작)"
+                stream:
+                  summary: NDJSON 스트림 예시
+                  value: '{"explanation":"다른 예시 프로그램을 보여드릴게요."}
+
+                    {"followUps":["강의 자료에서 어느 개념인지 보여주세요","더 궁금한 게 있어요 (채팅 시작)"]}'
         '400':
           description: 잘못된 요청
         '404':
@@ -145,7 +147,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
 components:
   schemas:
     # POST /login
@@ -180,8 +181,10 @@ components:
           items:
             $ref: '#/components/schemas/ContextCell'
           example:
-            - { cell_id: "12", code: "x = 13" }
-            - { cell_id: "23", code: "y = x * 2" }
+            - cell_id: '12'
+              code: x = 13
+            - cell_id: '23'
+              code: y = x * 2
         code:
           type: string
           description: 현재 블록의 코드
@@ -205,34 +208,31 @@ components:
 
     Output:
       type: object
-      required: [output_type]
+      required: [stdout, result, stderr]
       properties:
-        output_type:
-          type: string
-          enum: [result, stdout, stderr, display]
-          example: stdout
-        text:
+        stdout:
+          type: array
+          items:
+            type: string
+          example: ["26"]
+        result:
+          type: array
+          items:
+            type: string
+          example: ["26"]
+        stderr:
           type: array
           items:
             type: string
           example: ["26"]
 
     AnalysisResponseBody:
-      type: object
-      required: [chat_id, explanation, followUps]
-      properties:
-        chat_id:
-          type: string
-          description: 이 분석으로 생성된 채팅방 ID
-          example: "123_42_1"
-        explanation:
-          type: string
-          description: 분석기 결과 설명(마크다운 가능)
-        followUps:
-          type: array
-          description: 후속 액션 버튼 라벨 목록
-          items:
-            type: string
+      oneOf:
+        - $ref: '#/components/schemas/ChatIdEvent'
+        - $ref: '#/components/schemas/ExplanationEvent'
+        - $ref: '#/components/schemas/FollowUpsEvent'
+        - $ref: '#/components/schemas/EmptyEvent'
+      description: NDJSON 라인의 단일 이벤트(한 줄 = 한 객체)
 
     # POST /chat
     ChatRequestBody:
@@ -249,19 +249,47 @@ components:
           example: "비슷한 오류가 발생하는 다른 프로그램을 보여주세요"
 
     ChatResponseBody:
+      oneOf:
+        - $ref: '#/components/schemas/ExplanationEvent'
+        - $ref: '#/components/schemas/FollowUpsEvent'
+        - $ref: '#/components/schemas/EmptyEvent'
+      description: NDJSON 라인의 단일 이벤트(한 줄 = 한 객체)
+
+    ChatIdEvent:
       type: object
-      required: [explanation, followUps]
+      required:
+        - chat_id
+      properties:
+        chat_id:
+          type: string
+          description: 이 분석으로 생성된 채팅방 ID
+          example: '123_42_1'
+      description: '스트림 이벤트: 채팅방 ID'
+    ExplanationEvent:
+      type: object
+      required:
+        - explanation
       properties:
         explanation:
           type: string
-          description: 모델의 답변(설명/코드 등)
+          description: 설명(마크다운 가능)
+      description: '스트림 이벤트: 설명 텍스트'
+    FollowUpsEvent:
+      type: object
+      required:
+        - followUps
+      properties:
         followUps:
           type: array
-          description: 후속 액션 버튼 라벨 목록
           items:
             type: string
+          description: 후속 액션 버튼 라벨 목록
+      description: '스트림 이벤트: 후속 질문/버튼'
+    EmptyEvent:
+      type: object
+      additionalProperties: false
+      description: '스트림 이벤트: 빈 객체(keep-alive 또는 구분용)'
 
-    # 공통 에러
     Error:
       type: object
       required: [code, message]

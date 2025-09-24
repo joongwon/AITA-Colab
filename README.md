@@ -2,11 +2,11 @@
 
 ## Usage
 
-Run the following commands to install the dependencies and start the development server:
+Run the following commands to install the dependencies and build the extension:
 
 ```
 yarn
-yarn watch
+yarn build
 ```
 
 Go to `chrome://extensions/` in your browser and enable "Developer mode". Then click on "Load unpacked" and select the `build/chromium` directory.
