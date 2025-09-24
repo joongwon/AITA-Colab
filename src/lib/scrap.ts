@@ -163,9 +163,11 @@ function cellElemOfElt(elt: HTMLElement): CellElem {
  * const cells = getCells(document.body);
  */
 export function getCellElems(root: HTMLElement): CellElem[] {
-  return Array.from(root.querySelectorAll<HTMLElement>("div.cell")).map((elt) =>
-    cellElemOfElt(elt),
-  );
+  const elems = Array.from(root.querySelectorAll<HTMLElement>("div.cell"));
+  if (root.matches("div.cell")) {
+    elems.push(root);
+  }
+  return elems.map((elt) => cellElemOfElt(elt));
 }
 
 /**

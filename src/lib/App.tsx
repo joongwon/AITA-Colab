@@ -30,15 +30,24 @@ function initiateChat(payload: {
     thisCount === null
       ? allCodes
       : allCodes.filter((c) => c.execution_count < thisCount);
+  const output = payload.code.outputs.reduce<{
+    stdout: string[];
+    stderr: string[];
+    result: string[];
+  }>(
+    (acc, curr) =>
+      curr.output_type === "display"
+        ? acc
+        : {
+            ...acc,
+            [curr.output_type]: [...acc[curr.output_type], ...curr.text],
+          },
+    { stdout: [], stderr: [], result: [] },
+  );
   return analyse({
     session_id: payload.sessionId,
     cell_id: payload.cellId.toString(),
-    output: {
-      output_type: "result",
-      text: payload.code.outputs
-        .filter((o) => o.output_type === "result")
-        .flatMap((o) => o.text),
-    },
+    output: output,
     code: payload.code.source.join("\n"),
     context: context.map((c) => ({
       cell_id: c.cell_id.toString(),

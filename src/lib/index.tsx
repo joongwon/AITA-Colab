@@ -13,42 +13,67 @@ const fresh_id = (() => {
   };
 })();
 
+const cellRoots = new Map<number, ReturnType<typeof createRoot>>();
+
 function setupCodeCells(sessionId: string, element: HTMLElement) {
   const codeCellElems = getCellElems(element).filter(
     (cell) => cell.cellType === "code",
   );
 
   for (const { cellElem, cntElem, getCell } of codeCellElems) {
-    const mainContent = cellElem.querySelector(".main-content")!;
-    if (mainContent.children.length > 1) {
-      // If there are more than one child, extension is already mounted
-      return;
-    }
-
-    // Mount the extension UI
-    const div = document.createElement("div");
-    div.classList.add("w-max", "absolute", "top-3", "right-3");
-    mainContent.append(div);
-
-    const root = createRoot(div);
-    const cellId = fresh_id();
-    root.render(
-      <App
-        sessionId={sessionId}
-        cellId={cellId}
-        parentElement={div}
-        getCell={getCell}
-      />,
-    );
-
     // Observe the execution count to track executed code
     if (!cntElem) {
       console.warn("Execution count element not found in code cell:", cellElem);
       continue;
     }
+
+    const cellId = (() => {
+      if (cellElem.dataset.aitaCellId) {
+        return Number(cellElem.dataset.aitaCellId);
+      } else {
+        const id = fresh_id();
+        cellElem.dataset.aitaCellId = String(id);
+        return id;
+      }
+    })();
+
     const observer = new MutationObserver(() => {
       const cell = getCell();
       if (cell.execution_count !== null) {
+        // Mount the extension UI when the cell is executed
+        const [parent, root] = (() => {
+          const mainContent = cellElem.querySelector(".main-content")!;
+
+          const oldRoot = cellRoots.get(cellId);
+          if (oldRoot) {
+            // Already mounted; reuse it
+            const div = mainContent.lastChild;
+            if (!(div instanceof HTMLElement)) {
+              throw new Error("Expected last child to be an HTMLElement");
+            }
+            return [div, oldRoot];
+          }
+
+          // Mount the extension UI
+          const div = document.createElement("div");
+          div.classList.add("w-max", "absolute", "top-3", "right-3");
+          mainContent.append(div);
+
+          const root = createRoot(div);
+          cellRoots.set(cellId, root);
+          return [div, root];
+        })();
+
+        root.render(
+          <App
+            key={`${cellId}-${cell.execution_count}`}
+            sessionId={sessionId}
+            cellId={cellId}
+            parentElement={parent}
+            getCell={getCell}
+          />,
+        );
+
         addExecutedCode({
           cell_id: cellId,
           code: cell.source.join("\n"),
@@ -66,15 +91,15 @@ setTimeout(() => {
     .then(({ session_id: sessionId }) => {
       setupCodeCells(sessionId, document.body);
 
-      const observer = new MutationObserver((mutationsList) =>
+      const observer = new MutationObserver((mutationsList) => {
         mutationsList
           .flatMap((mutation) => Array.from(mutation.addedNodes))
           .filter((node) => node instanceof HTMLElement)
-          .forEach((node) => setupCodeCells(sessionId, node)),
-      );
+          .forEach((node) => setupCodeCells(sessionId, node));
+      });
       observer.observe(document.body, { childList: true, subtree: true });
     })
     .catch((err) => {
       console.error("Failed to login:", err);
     });
-}, 3000);
+}, 0);
