@@ -78,7 +78,7 @@ function continueChat(payload: {
  */
 export const App = (props: {
   parentElement: HTMLElement;
-  getCell: () => CodeCell;
+  cell: CodeCell;
   cellId: number;
   sessionId: string;
 }) => {
@@ -128,7 +128,7 @@ export const App = (props: {
           const stream = initiateChat({
             sessionId: props.sessionId,
             cellId: props.cellId,
-            code: props.getCell(),
+            code: props.cell,
           });
           for await (const chunk of stream) {
             setMessages([chunk]);

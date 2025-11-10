@@ -6,7 +6,7 @@
     "build": "node build.mjs",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "watch": "chokidar src build.mjs -c 'npm run build'",
+    "watch": "npm run build; chokidar src build.mjs -c 'npm run build'",
     "dev": "vite --config vite.config.mjs"
   },
   "main": "index.js",

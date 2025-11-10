@@ -22,14 +22,7 @@ export type ExecutedCodeCell = {
   source: string[];
 };
 
-export type UnexecutedCodeCell = {
-  cell_type: "code";
-  execution_count: null;
-  outputs: Output[];
-  source: string[];
-};
-
-export type CodeCell = ExecutedCodeCell | UnexecutedCodeCell;
+export type CodeCell = ExecutedCodeCell;
 
 export type MarkdownCell = {
   cell_type: "markdown";

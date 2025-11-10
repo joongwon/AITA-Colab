@@ -2,11 +2,11 @@ import { Output, CodeCell, MarkdownCell } from "./cell";
 
 type CellElem = {
   cellElem: HTMLElement;
-  cntElem: HTMLElement | null;
 } & (
   | {
       cellType: "code";
-      getCell: () => CodeCell;
+      statusElem: HTMLElement;
+      getCell: () => CodeCell | null;
     }
   | {
       cellType: "markdown";
@@ -22,7 +22,7 @@ function makeTextCell(source: string[]): MarkdownCell {
 }
 
 function makeCodeCell(
-  executionCount: number | null,
+  executionCount: number,
   outputs: Output[],
   source: string[],
 ): CodeCell {
@@ -62,9 +62,13 @@ function makeOutput(
   };
 }
 
+// TODO: remove this function... we cannot extract output from cross-origin iframe.
+// currently always returns empty array.
 function outputOfCell(elt: HTMLElement): Output[] {
-  const outputBody = elt.querySelector<HTMLElement>("div.output-body");
-  if (outputBody === null) {
+  const outputView = elt.querySelector<HTMLIFrameElement>(".outputview > iframe")!;
+  const outputBody = outputView?.contentDocument?.body
+    .querySelector<HTMLElement>(".output-body");
+  if (!outputBody) {
     return [];
   }
 
@@ -96,8 +100,7 @@ function cellOfElt(elt: HTMLElement): Cell {
 */
 
 function cellElemOfElt(elt: HTMLElement): CellElem {
-  const name = elt.className;
-  if (name.includes("text")) {
+  if (elt.classList.contains("text")) {
     // if a text cell
     const markdown = elt.querySelector<HTMLElement>("div.markdown");
     if (markdown === null) {
@@ -113,43 +116,43 @@ function cellElemOfElt(elt: HTMLElement): CellElem {
       return {
         getCell,
         cellType: "markdown",
-        cntElem: null,
         cellElem: elt,
       };
     }
-  } else if (name.includes("code")) {
+  } else if (elt.classList.contains("code")) {
     // if a code cell
 
     const runButton = elt.querySelector("colab-run-button");
+    const statusElem =
+      runButton?.shadowRoot?.querySelector<HTMLElement>(".status")!;
     const executionCountElement =
-      runButton?.shadowRoot?.querySelector<HTMLElement>(".execution-count");
+      statusElem?.querySelector<HTMLElement>(".execution-count");
 
     const getCell = () => {
+      const lastRunElement =
+        statusElem?.querySelector<HTMLElement>(".last-run");
+      if (lastRunElement === null) {
+        // if the cell has never been run or is still running
+        return null;
+      }
+
+      const executionCount = parseInt(executionCountElement!.innerText.slice(1, -1));
+
       const source =
         elt.style.display === "none" // if a cell collapsed
           ? codeOfHiddenCell(elt)
           : codeOfVisibleCell(elt);
 
-      const outputs = name.includes("code-has-output") // if a cell has output
-        ? outputOfCell(elt)
-        : [];
+      const outputs = outputOfCell(elt);
 
-      const executionCountText = executionCountElement?.innerText;
-
-      const executionCount =
-        executionCountText !== null &&
-        executionCountText !== undefined &&
-        executionCountText !== "[ ]" // unless not ever executed
-          ? Number(executionCountText.slice(1, -1))
-          : null;
       return makeCodeCell(executionCount, outputs, source);
     };
 
     return {
       getCell,
       cellType: "code",
-      cntElem: executionCountElement ?? null,
       cellElem: elt,
+      statusElem: statusElem,
     };
   } else {
     throw new Error("Invalid element: `cell code` or `cell text` expected.");

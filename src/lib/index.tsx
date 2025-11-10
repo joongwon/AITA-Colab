@@ -20,13 +20,8 @@ function setupCodeCells(sessionId: string, element: HTMLElement) {
     (cell) => cell.cellType === "code",
   );
 
-  for (const { cellElem, cntElem, getCell } of codeCellElems) {
+  for (const { cellElem, statusElem, getCell } of codeCellElems) {
     // Observe the execution count to track executed code
-    if (!cntElem) {
-      console.warn("Execution count element not found in code cell:", cellElem);
-      continue;
-    }
-
     const cellId = (() => {
       if (cellElem.dataset.aitaCellId) {
         return Number(cellElem.dataset.aitaCellId);
@@ -37,51 +32,52 @@ function setupCodeCells(sessionId: string, element: HTMLElement) {
       }
     })();
 
-    const observer = new MutationObserver(() => {
-      const cell = getCell();
-      if (cell.execution_count !== null) {
-        // Mount the extension UI when the cell is executed
-        const [parent, root] = (() => {
-          const mainContent = cellElem.querySelector(".main-content")!;
+    const observer = new MutationObserver(async () => {
+      const cell = await getCell();
+      // Only proceed if the cell has been executed
+      if (cell === null) return;
 
-          const oldRoot = cellRoots.get(cellId);
-          if (oldRoot) {
-            // Already mounted; reuse it
-            const div = mainContent.lastChild;
-            if (!(div instanceof HTMLElement)) {
-              throw new Error("Expected last child to be an HTMLElement");
-            }
-            return [div, oldRoot];
+      // Mount the extension UI when the cell is executed
+      const [parent, root] = (() => {
+        const mainContent = cellElem.querySelector(".main-content")!;
+
+        const oldRoot = cellRoots.get(cellId);
+        if (oldRoot) {
+          // Already mounted; reuse it
+          const div = mainContent.lastChild;
+          if (!(div instanceof HTMLElement)) {
+            throw new Error("Expected last child to be an HTMLElement");
           }
+          return [div, oldRoot];
+        }
 
-          // Mount the extension UI
-          const div = document.createElement("div");
-          div.classList.add("w-max", "absolute", "top-3", "right-3");
-          mainContent.append(div);
+        // Mount the extension UI
+        const div = document.createElement("div");
+        div.classList.add("w-max", "absolute", "top-3", "right-3");
+        mainContent.append(div);
 
-          const root = createRoot(div);
-          cellRoots.set(cellId, root);
-          return [div, root];
-        })();
+        const root = createRoot(div);
+        cellRoots.set(cellId, root);
+        return [div, root];
+      })();
 
-        root.render(
-          <App
-            key={`${cellId}-${cell.execution_count}`}
-            sessionId={sessionId}
-            cellId={cellId}
-            parentElement={parent}
-            getCell={getCell}
-          />,
-        );
+      root.render(
+        <App
+          key={`${cellId}-${cell.execution_count}`}
+          sessionId={sessionId}
+          cellId={cellId}
+          parentElement={parent}
+          cell={cell}
+        />,
+      );
 
-        addExecutedCode({
-          cell_id: cellId,
-          code: cell.source.join("\n"),
-          execution_count: cell.execution_count,
-        });
-      }
+      addExecutedCode({
+        cell_id: cellId,
+        code: cell.source.join("\n"),
+        execution_count: cell.execution_count,
+      });
     });
-    observer.observe(cntElem, { characterData: true, subtree: true });
+    observer.observe(statusElem, { childList: true, subtree: true });
   }
 }
 

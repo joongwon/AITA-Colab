@@ -1,3 +1,5 @@
+import type { Output } from "./cell";
+
 /* codes executed in the notebook, in order of execution */
 type ExecutedCode = {
   cell_id: number;
