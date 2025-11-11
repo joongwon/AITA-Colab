@@ -65,9 +65,13 @@ function makeOutput(
 // TODO: remove this function... we cannot extract output from cross-origin iframe.
 // currently always returns empty array.
 function outputOfCell(elt: HTMLElement): Output[] {
-  const outputView = elt.querySelector<HTMLIFrameElement>(".outputview > iframe")!;
-  const outputBody = outputView?.contentDocument?.body
-    .querySelector<HTMLElement>(".output-body");
+  const outputView = elt.querySelector<HTMLIFrameElement>(
+    ".outputview > iframe",
+  )!;
+  const outputBody =
+    outputView?.contentDocument?.body.querySelector<HTMLElement>(
+      ".output-body",
+    );
   if (!outputBody) {
     return [];
   }
@@ -99,7 +103,7 @@ function cellOfElt(elt: HTMLElement): Cell {
 }
 */
 
-function cellElemOfElt(elt: HTMLElement): CellElem {
+async function cellElemOfElt(elt: HTMLElement): Promise<CellElem> {
   if (elt.classList.contains("text")) {
     // if a text cell
     const markdown = elt.querySelector<HTMLElement>("div.markdown");
@@ -122,41 +126,73 @@ function cellElemOfElt(elt: HTMLElement): CellElem {
   } else if (elt.classList.contains("code")) {
     // if a code cell
 
-    const runButton = elt.querySelector("colab-run-button");
+    const runButton = elt.querySelector<HTMLElement>("colab-run-button");
+    if (!runButton) {
+      throw new Error("Invalid element: `colab-run-button` expected.");
+    }
+
     const statusElem =
-      runButton?.shadowRoot?.querySelector<HTMLElement>(".status")!;
-    const executionCountElement =
-      statusElem?.querySelector<HTMLElement>(".execution-count");
+      runButton?.shadowRoot?.querySelector<HTMLElement>(".status");
 
-    const getCell = () => {
-      const lastRunElement =
-        statusElem?.querySelector<HTMLElement>(".last-run");
-      if (lastRunElement === null) {
-        // if the cell has never been run or is still running
-        return null;
-      }
+    if (statusElem) {
+      return extractCodeCell(statusElem, elt);
+    } else {
+      return new Promise<CellElem>((resolve) => {
+        const observer = new MutationObserver((mutations, obs) => {
+          for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+              if (!(node instanceof HTMLElement)) continue;
 
-      const executionCount = parseInt(executionCountElement!.innerText.slice(1, -1));
+              const statusElem =
+                node.shadowRoot?.querySelector<HTMLElement>(".status");
+              if (statusElem) {
+                obs.disconnect();
+                resolve(extractCodeCell(statusElem, elt));
+                return;
+              }
+            }
+          }
+        });
 
-      const source =
-        elt.style.display === "none" // if a cell collapsed
-          ? codeOfHiddenCell(elt)
-          : codeOfVisibleCell(elt);
-
-      const outputs = outputOfCell(elt);
-
-      return makeCodeCell(executionCount, outputs, source);
-    };
-
-    return {
-      getCell,
-      cellType: "code",
-      cellElem: elt,
-      statusElem: statusElem,
-    };
+        observer.observe(runButton, { childList: true, subtree: true });
+      });
+    }
   } else {
     throw new Error("Invalid element: `cell code` or `cell text` expected.");
   }
+}
+
+function extractCodeCell(statusElem: HTMLElement, elt: HTMLElement) {
+  const executionCountElement =
+    statusElem.querySelector<HTMLElement>(".execution-count");
+
+  const getCell = () => {
+    const lastRunElement = statusElem?.querySelector<HTMLElement>(".last-run");
+    if (lastRunElement === null) {
+      // if the cell has never been run or is still running
+      return null;
+    }
+
+    const executionCount = parseInt(
+      executionCountElement?.innerText.slice(1, -1) ?? "0",
+    );
+
+    const source =
+      elt.style.display === "none" // if a cell collapsed
+        ? codeOfHiddenCell(elt)
+        : codeOfVisibleCell(elt);
+
+    const outputs = outputOfCell(elt);
+
+    return makeCodeCell(executionCount, outputs, source);
+  };
+
+  return {
+    getCell,
+    cellType: "code" as const,
+    cellElem: elt,
+    statusElem: statusElem,
+  };
 }
 
 /**
@@ -165,7 +201,7 @@ function cellElemOfElt(elt: HTMLElement): CellElem {
  * @example
  * const cells = getCells(document.body);
  */
-export function getCellElems(root: HTMLElement): CellElem[] {
+export function getCellElems(root: HTMLElement): Promise<CellElem>[] {
   const elems = Array.from(root.querySelectorAll<HTMLElement>("div.cell"));
   if (root.matches("div.cell")) {
     elems.push(root);

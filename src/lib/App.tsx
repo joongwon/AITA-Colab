@@ -83,7 +83,9 @@ export const App = (props: {
   sessionId: string;
 }) => {
   const [isActive, setIsActive] = useState(false);
-  const [messages, setMessages] = useState<(Partial<ChatResponse> | null)[]>([]);
+  const [messages, setMessages] = useState<(Partial<ChatResponse> | null)[]>(
+    [],
+  );
   const [chatId, setChatId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
