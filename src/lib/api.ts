@@ -12,11 +12,6 @@ export type AnalysisRequestBody = {
     code: string;
   }[];
   code: string;
-  output: {
-    stdout: string[];
-    stderr: string[];
-    result: string[];
-  };
 };
 
 export type AnalysisResult = {

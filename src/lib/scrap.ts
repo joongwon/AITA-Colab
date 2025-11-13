@@ -103,7 +103,7 @@ function cellOfElt(elt: HTMLElement): Cell {
 }
 */
 
-async function cellElemOfElt(elt: HTMLElement): Promise<CellElem> {
+function cellElemOfElt(elt: HTMLElement): Promise<CellElem> {
   if (elt.classList.contains("text")) {
     // if a text cell
     const markdown = elt.querySelector<HTMLElement>("div.markdown");
@@ -117,11 +117,11 @@ async function cellElemOfElt(elt: HTMLElement): Promise<CellElem> {
           .split("\n");
         return makeTextCell(source);
       };
-      return {
+      return Promise.resolve({
         getCell,
         cellType: "markdown",
         cellElem: elt,
-      };
+      });
     }
   } else if (elt.classList.contains("code")) {
     // if a code cell
@@ -135,26 +135,21 @@ async function cellElemOfElt(elt: HTMLElement): Promise<CellElem> {
       runButton?.shadowRoot?.querySelector<HTMLElement>(".status");
 
     if (statusElem) {
-      return extractCodeCell(statusElem, elt);
+      return Promise.resolve(extractCodeCell(statusElem, elt));
     } else {
       return new Promise<CellElem>((resolve) => {
-        const observer = new MutationObserver((mutations, obs) => {
-          for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-              if (!(node instanceof HTMLElement)) continue;
-
-              const statusElem =
-                node.shadowRoot?.querySelector<HTMLElement>(".status");
-              if (statusElem) {
-                obs.disconnect();
-                resolve(extractCodeCell(statusElem, elt));
-                return;
-              }
-            }
+        let timeout = 500;
+        const find = () => {
+          const statusElem =
+            runButton?.shadowRoot?.querySelector<HTMLElement>(".status");
+          if (statusElem) {
+            resolve(extractCodeCell(statusElem, elt));
+          } else {
+            timeout *= 1.5 + Math.random();
+            setTimeout(find, timeout);
           }
-        });
-
-        observer.observe(runButton, { childList: true, subtree: true });
+        }
+        setTimeout(find, timeout);
       });
     }
   } else {

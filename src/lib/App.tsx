@@ -48,7 +48,6 @@ function initiateChat(payload: {
   return analyse({
     session_id: payload.sessionId,
     cell_id: payload.cellId.toString(),
-    output: output,
     code: payload.code.source.join("\n"),
     context: context.map((c) => ({
       cell_id: c.cell_id.toString(),
